@@ -16,8 +16,23 @@ function ns:GetGuild(gkey)
 end
 
 local function SplitKey(key)
-    local n, r = strsplit("-", key, 2)
-    return n, r
+    return ns:SplitKey(key)
+end
+
+-- Key for a name the user typed. Matches an existing record (or a recently
+-- seen player) regardless of capitalisation, so "first surname" finds
+-- "First Surname".
+function ns:FindPlayerKey(text)
+    local key = ns:PlayerKey(text, nil)
+    if not key or ns.db.players[key] or (ns.seenByKey and ns.seenByKey[key]) then return key end
+    local lower = key:lower()
+    for k in pairs(ns.db.players) do
+        if k:lower() == lower then return k end
+    end
+    for k in pairs(ns.seenByKey or {}) do
+        if k:lower() == lower then return k end
+    end
+    return key
 end
 
 function ns:TouchGuild(gkey)

@@ -458,8 +458,8 @@ local function BuildPlayers(parent)
         select = function(item) ns:ShowDetail("player", item.key) end,
         isSelected = function(item) return detail.kind == "player" and detail.key == item.key end,
         footer = function(page)
-            AddByNameFooter(page, "Add player", "Name or Name-Realm", function(text)
-                local key = ns:PlayerKey(text, nil)
+            AddByNameFooter(page, "Add player", ns:UsesSurnames() and "First and last name" or "Name or Name-Realm", function(text)
+                local key = ns:FindPlayerKey(text)
                 ns:TouchPlayer(ns:SeenByKey(key) or { key = key })
                 ns:Fire("DATA_CHANGED", "player", key)
                 ns:ShowDetail("player", key)

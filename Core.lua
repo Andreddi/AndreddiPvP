@@ -122,9 +122,58 @@ function ns:NormalizeRealm(realm)
     return (realm:gsub("[%s%-]", ""))
 end
 
--- "Name-Realm" key used everywhere in the database.
-function ns:PlayerKey(name, realm)
+-- WoW: Forever characters have a first name and a surname, and the name APIs
+-- (UnitName, GetPlayerInfoByGUID, ...) return the surname where retail returns
+-- the realm. AndreddiPvP_Forever.toc sets "X-NameStyle: Surname"; the runtime
+-- check covers a client that loads the other TOC.
+local surnameMode
+function ns:UsesSurnames()
+    if surnameMode ~= nil then return surnameMode end
+    local getMeta = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+    if getMeta and SafeCall(getMeta, ADDON, "X-NameStyle") == "Surname" then
+        surnameMode = true
+        return true
+    end
+    local full = GetUnitName and SafeCall(GetUnitName, "player", false)
+    if full and full ~= "" then
+        surnameMode = full:find(" ", 1, true) ~= nil
+        return surnameMode
+    end
+    return false -- player name not known yet; ask again later
+end
+
+-- Turns the two values the name APIs return into (full name, realm).
+-- Retail: ("Name", "Realm") -> "Name", "Realm"
+-- Forever: ("First", "Surname") -> "First Surname", own realm
+function ns:NameAndRealm(name, second)
     if not name or name == "" then return nil end
+    if ns:UsesSurnames() then
+        if second and second ~= "" and not name:find(" ", 1, true)
+            and second ~= GetRealmName() and ns:NormalizeRealm(second) ~= ns:MyRealm() then
+            name = name .. " " .. second
+        end
+        return name, ns:MyRealm()
+    end
+    return name, ns:NormalizeRealm(second)
+end
+
+-- Splits a "Name-Realm" key. Realms are stored without hyphens, so the last
+-- hyphen is the separator; names with hyphens (Forever surnames) survive.
+function ns:SplitKey(key)
+    local n, r = key:match("^(.*)%-([^%-]*)$")
+    if not n then return key, nil end
+    return n, r
+end
+
+-- Key from a full name and realm, or from text the user typed. On retail
+-- typed text may be "Name-Realm"; on Forever the whole text is the name.
+function ns:PlayerKey(name, realm)
+    if not name then return nil end
+    name = strtrim(name)
+    if name == "" then return nil end
+    if ns:UsesSurnames() then
+        return name .. "-" .. ns:MyRealm()
+    end
     local n, r = strsplit("-", name, 2)
     if r and r ~= "" then realm = r end
     return n .. "-" .. ns:NormalizeRealm(realm)
@@ -132,17 +181,19 @@ end
 
 function ns:GuildKey(guild, realm)
     if not guild or guild == "" then return nil end
+    if ns:UsesSurnames() then realm = nil end
     return guild .. "-" .. ns:NormalizeRealm(realm)
 end
 
 function ns:MyKey()
-    return ns:PlayerKey(UnitName("player"), ns:MyRealm())
+    local name, realm = ns:NameAndRealm(SafeCall(UnitName, "player"))
+    return name and (name .. "-" .. realm)
 end
 
 -- Display name: strip realm when it matches our own.
 function ns:ShortName(key)
     if not key then return "?" end
-    local n, r = strsplit("-", key, 2)
+    local n, r = ns:SplitKey(key)
     if r == nil or r == ns:MyRealm() then return n end
     return n .. "-" .. r
 end
@@ -220,15 +271,16 @@ function ns:ReadUnit(unit)
     if not SafeCall(UnitIsPlayer, unit) then return nil end
     if SafeCall(UnitIsUnit, unit, "player") then return nil end
 
-    local name, realm = SafeCall(UnitName, unit)
-    if not name or name == "" or name == UNKNOWNOBJECT then return nil end
+    local rawName, second = SafeCall(UnitName, unit)
+    if not rawName or rawName == "" or rawName == UNKNOWNOBJECT then return nil end
+    local name, realm = ns:NameAndRealm(rawName, second)
 
     local info = {
         guid = SafeCall(UnitGUID, unit),
         name = name,
-        realm = ns:NormalizeRealm(realm),
+        realm = realm,
+        key = name .. "-" .. realm,
     }
-    info.key = ns:PlayerKey(name, info.realm)
     local _, classFile = SafeCall(UnitClass, unit)
     info.class = classFile
     local _, raceFile = SafeCall(UnitRace, unit)
@@ -248,11 +300,10 @@ end
 -- Player info from a GUID alone (works for players the client has seen recently).
 function ns:ReadGUID(guid)
     if not guid or not GetPlayerInfoByGUID then return nil end
-    local _, classFile, _, raceFile, _, name, realm = SafeCall(GetPlayerInfoByGUID, guid)
-    if not name or name == "" then return nil end
-    local info = { guid = guid, name = name, realm = ns:NormalizeRealm(realm), class = classFile, race = raceFile }
-    info.key = ns:PlayerKey(name, info.realm)
-    return info
+    local _, classFile, _, raceFile, _, rawName, second = SafeCall(GetPlayerInfoByGUID, guid)
+    if not rawName or rawName == "" then return nil end
+    local name, realm = ns:NameAndRealm(rawName, second)
+    return { guid = guid, name = name, realm = realm, key = name .. "-" .. realm, class = classFile, race = raceFile }
 end
 
 function ns:IsPlayerGUID(guid)
@@ -355,7 +406,8 @@ end)
 
 local function TargetOrName(arg)
     if arg and arg ~= "" then
-        return { key = ns:PlayerKey(arg, nil), name = strsplit("-", arg) }
+        local key = ns:FindPlayerKey(arg)
+        return { key = key, name = (ns:SplitKey(key)) }
     end
     return ns:ReadUnit("target")
 end
@@ -392,7 +444,7 @@ local function Help()
     ns:Print("commands:")
     print("  /apvp - open the history window")
     print("  /apvp stats | settings")
-    print("  /apvp kos|friendly|ignore|clear [Name-Realm] - list target or named player")
+    print("  /apvp kos|friendly|ignore|clear [name] - list target or named player")
     print("  /apvp gkos|gfriendly|gignore|gclear [Guild] - list target's guild or named guild")
     print("  /apvp note <text> - set a note on your target")
     print("  /apvp death - pick who killed you last (if it wasn't recorded)")

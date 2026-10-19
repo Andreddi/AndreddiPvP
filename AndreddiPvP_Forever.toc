@@ -4,6 +4,7 @@
 ## Author: Andreddi
 ## Version: 1.0.0
 ## SavedVariables: AndreddiPvPDB
+## X-NameStyle: Surname
 ## IconTexture: Interface\Icons\Ability_DualWield
 ## AddonCompartmentFunc: AndreddiPvP_OnCompartmentClick
 ## AddonCompartmentFuncOnEnter: AndreddiPvP_OnCompartmentEnter
