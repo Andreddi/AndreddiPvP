@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="Logo.jpg" alt="AndreddiPvP logo" width="256">
+</p>
+
 # AndreddiPvP
 
 An addon for **World of Warcraft: Forever** and **retail**. It keeps a history of the players and guilds you fight in open-world PvP.
