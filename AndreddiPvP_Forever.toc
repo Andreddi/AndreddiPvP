@@ -2,7 +2,7 @@
 ## Title: |cffd4a017Andreddi|r|cffe03030PvP|r
 ## Notes: Keeps a history of the players and guilds you meet in open-world PvP: kills, deaths, notes, KOS/friendly/ignore lists, proximity alerts and statistics.
 ## Author: Andreddi
-## Version: 1.0.0
+## Version: @project-version@
 ## SavedVariables: AndreddiPvPDB
 ## X-NameStyle: Surname
 ## IconTexture: Interface\Icons\Ability_DualWield
