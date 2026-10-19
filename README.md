@@ -28,6 +28,11 @@ When a patch changes the interface number, update the `## Interface` line in tha
 
 If one client ever needs its own file, list it in only that `.toc`.
 
+### Character names
+
+- **Retail:** players are stored as `Name-Realm`, and players from your own realm are shown without the realm.
+- **Forever:** characters have a first name and a surname, and the game reports the surname where retail reports the realm. `AndreddiPvP_Forever.toc` contains `## X-NameStyle: Surname`, which tells the addon to store full names like `First Surname`. When you type a name by hand (slash commands, *Add player*, the killer box), use the full name. Capitalisation doesn't matter if the player is already known.
+
 ## Features
 
 - **History.** Every kill and death is saved with the time, zone, level, class and guild.
@@ -63,7 +68,7 @@ By default, battlegrounds and arenas are not tracked.
 |---|---|
 | `/apvp` | Open or close the history window |
 | `/apvp stats`, `/apvp settings` | Open a specific tab |
-| `/apvp kos`, `friendly`, `ignore`, `clear` `[Name-Realm]` | List your target or a named player |
+| `/apvp kos`, `friendly`, `ignore`, `clear` `[name]` | List your target or a named player (`Name-Realm` on retail, `First Surname` on Forever) |
 | `/apvp gkos`, `gfriendly`, `gignore`, `gclear` `[Guild]` | List your target's guild or a named guild |
 | `/apvp note <text>` | Set a note on your target |
 | `/apvp death` | Record who killed you |

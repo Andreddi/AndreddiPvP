@@ -94,19 +94,19 @@ local function Build()
     end
     pick.manualLabel = UI.Text(pick, "GameFontNormalSmall", "Or type a name:")
     pick.manual = UI.EditBox(pick, 190, 22)
-    pick.manual:SetPlaceholder("Name or Name-Realm")
+    pick.manual:SetPlaceholder(ns:UsesSurnames() and "First and last name" or "Name or Name-Realm")
     pick.manual:SetScript("OnEnterPressed", function(self)
         self:ClearFocus()
         local text = strtrim(self:GetText() or "")
         if text ~= "" then
-            ns:PickKiller({ key = ns:PlayerKey(text, nil) })
+            ns:PickKiller({ key = ns:FindPlayerKey(text) })
             self:SetText("")
         end
     end)
     pick.manualButton = UI.Button(pick, "Record", 70, 22, function()
         local text = strtrim(pick.manual:GetText() or "")
         if text ~= "" then
-            ns:PickKiller({ key = ns:PlayerKey(text, nil) })
+            ns:PickKiller({ key = ns:FindPlayerKey(text) })
             pick.manual:SetText("")
         end
     end)
