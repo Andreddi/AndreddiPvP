@@ -1,7 +1,7 @@
 local ADDON, ns = ...
 
 ns.name = ADDON
-ns.version = "1.0.0"
+ns.version = "@project-version@"
 ns.color = "|cffd4a017"
 
 --------------------------------------------------------------------------------
