@@ -42,7 +42,7 @@ If one client ever needs its own file, list it in only that `.toc`.
 - **History.** Every kill and death is saved with the time, zone, level, class and guild.
 - **Post-fight popup.** After a kill or death, a small window lets you put the player and their guild on a list and write a note. It closes on its own after 30 s; hovering or typing in it keeps it open.
 - **Lists.** Players and whole guilds can go on *Kill on sight*, *Friendly* or *Ignore*. A player's own list wins over their guild's list.
-- **Proximity alerts.** You get a toast, a sound and a chat line when someone from your history or lists shows up (nameplate, target, focus or mouseover). The toast shows your K/D against them, your last encounter, notes and list. Each category has its own sound (KOS, Friendly, known player). Ignored players never trigger an alert.
+- **Proximity alerts.** You get a toast, a sound and a chat line when someone from your history or lists shows up (nameplate, target, focus or mouseover). The toast shows your K/D against them, your last encounter, notes and list. Each category has its own sound (KOS, Friendly, known player). Ignored players never trigger an alert. Left-click a toast to target the player (out of combat only, since the game blocks addon targeting in combat). Right-click dismisses it.
 - **Tooltip.** Player tooltips show your list, K/D against the player and their guild, your last encounter, and your notes.
 - **Statistics.** This tab shows:
   - your overall K/D
