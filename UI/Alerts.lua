@@ -85,7 +85,38 @@ local function Layout()
     end
 end
 
+-- Targeting needs a secure button, which cannot be shown, moved or given a new
+-- name in combat. So a single secure button is laid over the hovered toast
+-- out of combat, and taken away as combat starts. In combat a left-click on
+-- a toast does nothing.
+local targetButton
+
+local function TargetName(key)
+    local name, realm = ns:SplitKey(key)
+    if realm and realm ~= ns:MyRealm() and not ns:UsesSurnames() then
+        return name .. "-" .. realm
+    end
+    return name
+end
+
+local function HideTargetButton()
+    if not targetButton or InCombatLockdown() then return end
+    targetButton:Hide()
+    targetButton:ClearAllPoints()
+    targetButton.toast = nil
+end
+
+local function ShowTargetButton(t)
+    if InCombatLockdown() or not t.key then return end
+    targetButton:SetAttribute("macrotext1", "/targetexact " .. TargetName(t.key))
+    targetButton:ClearAllPoints()
+    targetButton:SetAllPoints(t)
+    targetButton.toast = t
+    targetButton:Show()
+end
+
 local function Release(t)
+    if targetButton.toast == t then HideTargetButton() end
     for i, v in ipairs(toasts) do
         if v == t then table.remove(toasts, i) break end
     end
@@ -122,11 +153,10 @@ local function CreateToast()
     t.body:SetSpacing(2)
     t.body:SetWordWrap(true)
 
+    -- Out of combat the target button covers the toast and takes the clicks.
+    t:SetScript("OnEnter", ShowTargetButton)
     t:SetScript("OnClick", function(self, button)
-        if button == "LeftButton" and self.key and ns:GetPlayer(self.key) then
-            ns:ShowMainWindow("players", self.key)
-        end
-        Release(self)
+        if button == "RightButton" then Release(self) end
     end)
     t:SetScript("OnUpdate", function(self, elapsed)
         if self:IsMouseOver() then
@@ -309,7 +339,28 @@ function ns:TestAlert()
     if ns.db.settings.soundsEnabled then ns:PlayAlertSound(ns.db.settings.soundKOS) end
 end
 
+local function BuildTargetButton()
+    targetButton = CreateFrame("Button", nil, UIParent, "SecureActionButtonTemplate")
+    targetButton:SetFrameStrata("DIALOG")
+    targetButton:RegisterForClicks("LeftButtonDown", "LeftButtonUp", "RightButtonUp")
+    targetButton:SetAttribute("type1", "macro")
+    targetButton:SetScript("OnLeave", HideTargetButton)
+    targetButton:SetScript("PostClick", function(self, button)
+        if button == "RightButton" and self.toast then Release(self.toast) end
+    end)
+    targetButton:Hide()
+end
+
+-- Fires just before the combat lockdown, while the button can still be hidden.
+ns:On("PLAYER_REGEN_DISABLED", HideTargetButton)
+ns:On("PLAYER_REGEN_ENABLED", function()
+    for _, t in ipairs(toasts) do
+        if t:IsMouseOver() then ShowTargetButton(t) break end
+    end
+end)
+
 ns:Listen("DB_READY", function()
     BuildSoundList()
     BuildAnchor()
+    BuildTargetButton()
 end)
