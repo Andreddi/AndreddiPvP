@@ -191,7 +191,7 @@ function ns:OnKill(victimGUID, how)
 
     local list = ns:EffectiveList(info.key, info.guildKey)
     if ns.db.settings.popupOnKill and list ~= "ignore" then
-        ns:QueuePopup({ mode = "kill", enc = enc })
+        ns:QueuePopup({ mode = "kill", enc = enc, wait = true })
     end
 end
 
@@ -248,7 +248,7 @@ local function OnDeath()
         death.enc = ns:RecordEncounter("death", info, "auto", extra)
         local list = ns:EffectiveList(info.key, info.guildKey)
         if s.popupOnDeath and list ~= "ignore" then
-            ns:QueuePopup({ mode = "death", enc = death.enc, death = death })
+            ns:QueuePopup({ mode = "death", enc = death.enc, death = death, wait = true })
         end
         return
     end
@@ -258,7 +258,7 @@ local function OnDeath()
     -- Picking a killer later moves it to them.
     death.enc = ns:RecordEncounter("death", nil, "unknown", extra)
     if s.popupOnDeath then
-        ns:QueuePopup({ mode = "pick", death = death })
+        ns:QueuePopup({ mode = "pick", death = death, wait = true })
     else
         ns:Print("You died with " .. #candidates .. " enemy players nearby. Saved as an unknown player; type /apvp death to pick the killer.")
     end

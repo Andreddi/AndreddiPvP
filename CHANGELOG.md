@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.6
+
+- The popup after a kill or death no longer appears right away. It waits until you're out of combat and alive again, then shows a few seconds later.
+
 ## 1.0.5
 
 - When several enemy players were targeting you when you died, the death is now saved as an "unknown player" right away. Before, it was lost if you closed the popup without picking anyone. Pick a name in the popup to move the death to that player, or click "Not a player" to remove it.

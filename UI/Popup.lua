@@ -265,11 +265,45 @@ function ns:RefreshPopup()
     popup:Show()
 end
 
+-- Popups from a kill or death wait until you are alive and out of combat,
+-- then show a few seconds later, so they don't cover the screen mid-fight.
+local waiting = {}
+local SHOW_DELAY = 3
+
+local function Busy()
+    return InCombatLockdown() or UnitIsDeadOrGhost("player")
+end
+
+local function FlushWaiting()
+    if #waiting == 0 or Busy() then return end
+    local list = waiting
+    waiting = {}
+    for _, entry in ipairs(list) do ns:QueuePopup(entry) end
+end
+
+local function FlushSoon()
+    C_Timer.After(SHOW_DELAY, FlushWaiting)
+end
+
+ns:On("PLAYER_REGEN_ENABLED", FlushSoon)
+ns:On("PLAYER_ALIVE", FlushSoon)
+ns:On("PLAYER_UNGHOST", FlushSoon)
+
+-- entry.wait: hold the popup until you are out of combat and alive.
 function ns:QueuePopup(entry)
+    if entry.wait then
+        entry.wait = nil
+        table.insert(waiting, entry)
+        FlushSoon()
+        return
+    end
     if not popup then Build() end
     -- A new pick for the same death replaces the old one.
     for i = #queue, 1, -1 do
         if entry.death and queue[i].death == entry.death then table.remove(queue, i) end
+    end
+    for i = #waiting, 1, -1 do
+        if entry.death and waiting[i].death == entry.death then table.remove(waiting, i) end
     end
     table.insert(queue, entry)
     ns:RefreshPopup()
