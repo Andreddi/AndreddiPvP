@@ -253,7 +253,7 @@ local function Build(page)
         local met = {}
         local metCount = 0
         for _, e in ipairs(ns.db.encounters) do
-            if (not scopeMe or e.me == ns:MyKey()) and not met[e.key] then
+            if e.key and (not scopeMe or e.me == ns:MyKey()) and not met[e.key] then
                 met[e.key] = true
                 metCount = metCount + 1
             end

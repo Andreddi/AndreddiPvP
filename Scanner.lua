@@ -23,6 +23,17 @@ local function IsTargetingMe(unit)
     return SafeCall(UnitIsUnit, unit .. "target", "player") and true or false
 end
 
+-- Hostile NPCs (not player pets, totems or guardians) that have us targeted or
+-- on their threat list. Used to tag deaths where a mob was involved.
+local function CheckMob(unit)
+    if not SafeCall(UnitExists, unit) then return end
+    if SafeCall(UnitIsPlayer, unit) or SafeCall(UnitPlayerControlled, unit) then return end
+    if not SafeCall(UnitCanAttack, "player", unit) then return end
+    if IsTargetingMe(unit) or SafeCall(UnitThreatSituation, "player", unit) ~= nil then
+        ns:NoteMobThreat(SafeCall(UnitGUID, unit), SafeCall(UnitName, unit))
+    end
+end
+
 -- Reads a unit and feeds every module that cares. Returns the info.
 function ns:ScanUnit(unit, source)
     local info = ns:ReadUnit(unit)
@@ -62,7 +73,13 @@ ns:On("UNIT_TARGET", function(_, unit)
             local info = ns:ReadUnit(unit)
             if info and info.hostile then ns:NoteThreat(ns:Remember(info)) end
         end
+        CheckMob(unit)
     end
+end)
+
+-- A mob put us on its threat list (it may be targeting someone else).
+ns:On("UNIT_THREAT_LIST_UPDATE", function(_, unit)
+    if unit and (plates[unit] or unit == "target" or unit == "focus") then CheckMob(unit) end
 end)
 
 -- Periodic sweep: enemies already on screen may start targeting us, and guild
@@ -71,11 +88,14 @@ local function Sweep()
     for unit in pairs(plates) do
         if SafeCall(UnitExists, unit) then
             ns:ScanUnit(unit, "nameplate")
+            CheckMob(unit)
         else
             plates[unit] = nil
         end
     end
     ns:ScanUnit("target", "target")
+    CheckMob("target")
+    CheckMob("focus")
 end
 
 ns:Listen("LOGIN", function()

@@ -61,8 +61,9 @@ Forever gives addons **no combat log**: `COMBAT_LOG_EVENT_UNFILTERED` is forbidd
 - **Kills** come from the `PARTY_KILL` event when you or your pet land the killing blow. Kills by party members can be counted too (a setting, off by default).
 - **Deaths:** `PLAYER_DEAD` doesn't say who killed you. The addon remembers enemy players that were targeting you in the last 20 s (the "suspect window" setting).
   - **One suspect:** the death is recorded against them automatically. The popup has a *Wrong player?* button.
-  - **Several suspects:** the popup asks you to pick one.
+  - **Several suspects:** the death is saved against an *unknown player*, so it counts in your totals even if you never pick anyone. The popup asks who it was; picking a name moves the death to them, and *Not a player* removes it. You can also select an unknown-player death in the History tab and click *Record a death...* to name the killer later.
   - **No suspects** (stealth, out of view, PvE death): nothing is recorded. Use `/apvp death` or *Record a death...* in the History tab to type the name.
+  - **Mobs:** the addon also remembers hostile NPCs that had you targeted or on their threat list. If one did within the suspect window, the death is tagged **+mob**. The History tab has a *Mob* filter for these, and searching for a mob's name finds the deaths it was part of.
 
 By default, battlegrounds and arenas are not tracked.
 

@@ -125,6 +125,7 @@ local function RecentLines(filterFn, max)
         local e = enc[i]
         if filterFn(e) then
             local what = e.kind == "kill" and "|cff40ff40Kill|r" or "|cffff4040Death|r"
+            if e.mob then what = what .. " " .. ns:MobTag() end
             local line = date("%m-%d %H:%M", e.t) .. "  " .. what
             if e.zone and e.zone ~= "" then line = line .. "  |cff999999" .. e.zone .. "|r" end
             table.insert(out, line)
@@ -327,10 +328,13 @@ local selectedEncounter
 local function BuildHistory(parent)
     return BuildTablePage(parent, {
         columns = {
-            { "When", 92 }, { "", 38 }, { "Player", 112 }, { "Lvl", 24, "CENTER" },
+            { "When", 92 }, { "", 62 }, { "Player", 112 }, { "Lvl", 24, "CENTER" },
             { "Guild", 104 }, { "Zone", nil },
         },
-        filters = { { "all", "All", 44 }, { "kill", "Kills", 50 }, { "death", "Deaths", 56 }, { "me", "This char", 70 } },
+        filters = {
+            { "all", "All", 44 }, { "kill", "Kills", 50 }, { "death", "Deaths", 56 },
+            { "mob", "Mob", 44 }, { "me", "This char", 70 },
+        },
         emptyText = "No kills or deaths recorded yet. Go fight someone!",
         rows = function(search, filter)
             local out = {}
@@ -338,10 +342,13 @@ local function BuildHistory(parent)
             local enc = ns.db.encounters
             for i = #enc, 1, -1 do
                 local e = enc[i]
-                if (filter == "all" or e.kind == filter or (filter == "me" and e.me == me)) then
+                if filter == "all" or e.kind == filter or (filter == "me" and e.me == me)
+                    or (filter == "mob" and e.mob) then
                     local p = ns:GetPlayer(e.key)
                     local g = ns:GetGuild(e.guildKey)
-                    if Matches(search, e.key, g and g.name, e.zone, e.sub, p and p.note) then
+                    if Matches(search, e.key, g and g.name, e.zone, e.sub, p and p.note,
+                        not e.key and "unknown player" or nil,
+                        e.mob and "mob" or nil, e.mobs and table.concat(e.mobs, ", ") or nil) then
                         table.insert(out, e)
                     end
                 end
@@ -350,12 +357,11 @@ local function BuildHistory(parent)
         end,
         cells = function(e)
             local g = ns:GetGuild(e.guildKey)
-            local p = ns:GetPlayer(e.key)
-            local list = ns:EffectiveList(e.key, e.guildKey)
+            local list = e.key and ns:EffectiveList(e.key, e.guildKey)
             return {
                 date("%y-%m-%d %H:%M", e.t),
-                e.kind == "kill" and "|cff40ff40Kill|r" or "|cffff4040Death|r",
-                ns:ColoredName(e.key, e.class or (p and p.class)) .. (list and (" " .. ns:ListTag(list)) or ""),
+                (e.kind == "kill" and "|cff40ff40Kill|r" or "|cffff4040Death|r") .. (e.mob and (" " .. ns:MobTag()) or ""),
+                ns:EncounterName(e) .. (list and (" " .. ns:ListTag(list)) or ""),
                 e.level and tostring(e.level) or "",
                 g and g.name or "",
                 (e.zone or "") .. (e.sub and ("|cff888888 - " .. e.sub .. "|r") or ""),
@@ -375,9 +381,19 @@ local function BuildHistory(parent)
             end)
             del:SetPoint("BOTTOMLEFT")
             del.tooltip = "Remove the selected kill/death (e.g. a wrong guess)"
-            local death = UI.Button(page, "Record a death...", 120, 22, function() ns:ShowDeathPicker() end)
+            page.tagHelp = UI.Text(page, "GameFontDisableSmall", ns:MobTag() .. " a hostile NPC was on you too", "RIGHT")
+            page.tagHelp:SetPoint("BOTTOMRIGHT", 0, 6)
+            local death = UI.Button(page, "Record a death...", 120, 22, function()
+                local e = selectedEncounter
+                if e and e.kind == "death" and not e.key then
+                    ns:ShowDeathPicker(e)
+                else
+                    ns:ShowDeathPicker()
+                end
+            end)
             death:SetPoint("LEFT", del, "RIGHT", 6, 0)
-            death.tooltip = "Pick or type who killed you, if it wasn't recorded"
+            death.tooltip = "Pick or type who killed you, if it wasn't recorded. "
+                .. "With an unknown-player death selected, names its killer."
         end,
     })
 end

@@ -5,7 +5,9 @@ local _, ns = ...
 --                     firstSeen, lastSeen, kills, deaths, list, note }
 --   guilds[gkey]  = { name, realm, list, note, kills, deaths, firstSeen, lastSeen, members = { [key] = true } }
 --   encounters[i] = { t, kind = "kill"|"death", key, guildKey, class, race, level,
---                     zone, sub, me, how }
+--                     zone, sub, me, how, mob, mobs }
+--   key is nil for a death whose killer is an unknown player. mob is true when a
+--   hostile NPC had us targeted when we died; mobs lists their names if known.
 
 function ns:GetPlayer(key)
     return key and ns.db.players[key]
@@ -184,34 +186,42 @@ local function Count(enc, delta)
     if g then g[field] = math.max(0, (g[field] or 0) + delta) end
 end
 
--- kind: "kill" or "death". info: player info table (see ns:ReadUnit).
--- how: how it was detected ("event", "honor", "auto", "picked", "manual").
-function ns:RecordEncounter(kind, info, how)
-    local p = ns:TouchPlayer(info)
-    if not p then return nil end
+-- kind: "kill" or "death". info: player info table (see ns:ReadUnit), or nil
+-- for a death by an unknown player.
+-- how: how it was detected ("event", "honor", "auto", "picked", "manual", "unknown").
+-- extra: optional fields copied onto the encounter (mob, mobs).
+function ns:RecordEncounter(kind, info, how, extra)
+    local p = {}
+    if info then
+        p = ns:TouchPlayer(info)
+        if not p then return nil end
+    end
     local zone, sub = ns:ZoneInfo()
     local enc = {
         t = time(),
         kind = kind,
-        key = info.key,
+        key = info and info.key,
         guildKey = p.guildKey,
         class = p.class,
         race = p.race,
-        level = info.level or p.level,
+        level = (info and info.level) or p.level,
         zone = zone,
         sub = sub ~= "" and sub or nil,
         me = ns:MyKey(),
         how = how,
     }
+    if extra then
+        for k, v in pairs(extra) do enc[k] = v end
+    end
     table.insert(ns.db.encounters, enc)
     Count(enc, 1)
     ns:Fire("ENCOUNTER", enc)
-    ns:Fire("DATA_CHANGED", "encounter", info.key)
+    ns:Fire("DATA_CHANGED", "encounter", enc.key)
     return enc
 end
 
 -- Moves a death (or kill) to a different player, e.g. when the killer was
--- guessed wrong.
+-- guessed wrong or was saved as an unknown player.
 function ns:ReassignEncounter(enc, info)
     Count(enc, -1)
     local p = ns:TouchPlayer(info)
@@ -355,15 +365,18 @@ function ns:ComputeStats(me)
                     end
                 end
             end
-            local c = e.class or "UNKNOWN"
-            classes[c] = classes[c] or { class = e.class, kills = 0, deaths = 0 }
-            classes[c][field] = classes[c][field] + 1
-            if e.guildKey then
-                guilds[e.guildKey] = guilds[e.guildKey] or { key = e.guildKey, kills = 0, deaths = 0 }
-                guilds[e.guildKey][field] = guilds[e.guildKey][field] + 1
+            -- Unknown killers count in the totals but not per class/player.
+            if e.key then
+                local c = e.class or "UNKNOWN"
+                classes[c] = classes[c] or { class = e.class, kills = 0, deaths = 0 }
+                classes[c][field] = classes[c][field] + 1
+                if e.guildKey then
+                    guilds[e.guildKey] = guilds[e.guildKey] or { key = e.guildKey, kills = 0, deaths = 0 }
+                    guilds[e.guildKey][field] = guilds[e.guildKey][field] + 1
+                end
+                players[e.key] = players[e.key] or { key = e.key, class = e.class, kills = 0, deaths = 0 }
+                players[e.key][field] = players[e.key][field] + 1
             end
-            players[e.key] = players[e.key] or { key = e.key, class = e.class, kills = 0, deaths = 0 }
-            players[e.key][field] = players[e.key][field] + 1
         end
     end
 

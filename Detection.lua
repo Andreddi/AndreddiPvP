@@ -5,7 +5,8 @@ local SafeCall = ns.SafeCall
 -- WoW: Forever gives addons no combat log. Kills come from the PARTY_KILL
 -- frame event (attackerGUID, targetGUID). Deaths come from PLAYER_DEAD, which
 -- carries no killer, so we keep a short memory of enemy players that were
--- targeting us and attribute the death to them (or let the user pick).
+-- targeting us and attribute the death to them (or let the user pick). We also
+-- remember hostile NPCs that had us targeted, to tag deaths where a mob helped.
 
 --------------------------------------------------------------------------------
 -- Recently seen players (in memory only)
@@ -14,6 +15,7 @@ local SafeCall = ns.SafeCall
 ns.seen = {}        -- guid -> info (with .t)
 ns.seenByKey = {}   -- key  -> info
 ns.threats = {}     -- key  -> { info = info, t = time }
+ns.mobThreats = {}  -- guid or name -> { name = name or nil, t = time }
 
 local SEEN_TTL = 1800
 
@@ -58,6 +60,9 @@ function ns:PruneSeen()
     for key, th in pairs(ns.threats) do
         if now - th.t > window * 3 then ns.threats[key] = nil end
     end
+    for id, m in pairs(ns.mobThreats) do
+        if now - m.t > window * 3 then ns.mobThreats[id] = nil end
+    end
 end
 
 -- Called by the scanner whenever an enemy player is seen targeting us.
@@ -70,6 +75,40 @@ function ns:NoteThreat(info)
     else
         ns.threats[info.key] = { info = info, t = GetTime() }
     end
+end
+
+-- Called by the scanner when a hostile NPC has us targeted or on its threat list.
+function ns:NoteMobThreat(guid, name)
+    local id = guid or name or "?"
+    local m = ns.mobThreats[id]
+    if m then
+        m.t = GetTime()
+        m.name = name or m.name
+    else
+        ns.mobThreats[id] = { name = name, t = GetTime() }
+    end
+end
+
+-- Were any hostile NPCs on us within the death window? Returns true/false and
+-- up to three of their names, most recent first.
+function ns:RecentMobs()
+    local now = GetTime()
+    local window = ns.db.settings.deathWindow or 20
+    local recent = {}
+    for _, m in pairs(ns.mobThreats) do
+        if now - m.t <= window then table.insert(recent, m) end
+    end
+    if #recent == 0 then return false end
+    table.sort(recent, function(a, b) return a.t > b.t end)
+    local names, seenName = {}, {}
+    for _, m in ipairs(recent) do
+        if m.name and not seenName[m.name] then
+            seenName[m.name] = true
+            table.insert(names, m.name)
+            if #names >= 3 then break end
+        end
+    end
+    return true, names
 end
 
 -- Enemy players that targeted us within the death window, most recent first.
@@ -171,7 +210,7 @@ end)
 -- Deaths
 --------------------------------------------------------------------------------
 
-ns.lastDeath = nil -- { t, candidates = { info... }, enc = recorded encounter or nil }
+ns.lastDeath = nil -- { t, candidates = { info... }, extra = { mob, mobs } or nil, enc = recorded encounter or nil }
 
 local function OnDeath()
     if not ShouldTrackHere() then return end
@@ -190,9 +229,13 @@ local function OnDeath()
         if not found then table.insert(candidates, target) end
     end
 
-    local death = { t = time(), candidates = candidates }
+    local mob, mobNames = ns:RecentMobs()
+    local extra = mob and { mob = true, mobs = #mobNames > 0 and mobNames or nil } or nil
+
+    local death = { t = time(), candidates = candidates, extra = extra }
     ns.lastDeath = death
     wipe(ns.threats)
+    wipe(ns.mobThreats)
 
     if #candidates == 0 then
         ns:Debug("Died with no enemy player suspects")
@@ -202,15 +245,22 @@ local function OnDeath()
     local s = ns.db.settings
     if #candidates == 1 and s.autoAttributeDeath then
         local info = candidates[1]
-        death.enc = ns:RecordEncounter("death", info, "auto")
+        death.enc = ns:RecordEncounter("death", info, "auto", extra)
         local list = ns:EffectiveList(info.key, info.guildKey)
         if s.popupOnDeath and list ~= "ignore" then
             ns:QueuePopup({ mode = "death", enc = death.enc, death = death })
         end
-    elseif s.popupOnDeath then
+        return
+    end
+
+    -- An enemy player was on us but we can't tell which one: save the death
+    -- against an unknown player now, so it counts even if nobody is picked.
+    -- Picking a killer later moves it to them.
+    death.enc = ns:RecordEncounter("death", nil, "unknown", extra)
+    if s.popupOnDeath then
         ns:QueuePopup({ mode = "pick", death = death })
     else
-        ns:Print("You died with " .. #candidates .. " enemy players nearby. Type /apvp death to record who killed you.")
+        ns:Print("You died with " .. #candidates .. " enemy players nearby. Saved as an unknown player; type /apvp death to pick the killer.")
     end
 end
 
@@ -221,12 +271,31 @@ function ns:AttributeDeath(death, info, how)
     if death.enc then
         ns:ReassignEncounter(death.enc, info)
     else
-        death.enc = ns:RecordEncounter("death", info, how or "picked")
+        death.enc = ns:RecordEncounter("death", info, how or "picked", death.extra)
     end
     return death.enc
 end
 
-function ns:ShowDeathPicker()
+-- The user says the last death wasn't a player kill: forget it.
+function ns:DiscardDeath(death)
+    if death and death.enc then
+        ns:DeleteEncounter(death.enc)
+        death.enc = nil
+        ns:Print("Death removed from your history.")
+    end
+end
+
+-- enc: an unknown-player death from the history to name the killer of.
+-- Without it, the picker is for the last death.
+function ns:ShowDeathPicker(enc)
+    if enc then
+        local death = ns.lastDeath
+        if not (death and death.enc == enc) then
+            death = { t = enc.t, candidates = {}, enc = enc }
+        end
+        ns:QueuePopup({ mode = "pick", death = death })
+        return
+    end
     local death = ns.lastDeath
     if not death then
         death = { t = time(), candidates = {} }

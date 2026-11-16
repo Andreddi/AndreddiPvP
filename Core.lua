@@ -225,6 +225,18 @@ ns.LIST_INFO = {
     ignore   = { label = "Ignore",        short = "Ignore",   color = { 0.60, 0.60, 0.60 }, hex = "ff999999" },
 }
 
+-- Marks a death where a hostile NPC had you targeted.
+function ns:MobTag()
+    return "|cffd08040+mob|r"
+end
+
+-- How an encounter's player is shown; deaths by an unknown player have no key.
+function ns:EncounterName(e)
+    if not e.key then return "|cff999999Unknown player|r" end
+    local p = ns:GetPlayer(e.key)
+    return ns:ColoredName(e.key, e.class or (p and p.class))
+end
+
 function ns:ListTag(list)
     local info = list and ns.LIST_INFO[list]
     if not info then return "" end

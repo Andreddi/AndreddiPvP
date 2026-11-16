@@ -121,7 +121,11 @@ local function Build()
     end)
     popup.details:SetPoint("BOTTOMLEFT", 12, 10)
 
-    popup.dismiss = UI.Button(popup, "Close", 80, 20, function() ns:ClosePopup() end)
+    popup.dismiss = UI.Button(popup, "Close", 80, 20, function(self)
+        local e = CurrentEntry()
+        if self.discards and e and e.death then ns:DiscardDeath(e.death) end
+        ns:ClosePopup()
+    end)
     popup.dismiss:SetPoint("BOTTOMRIGHT", -12, 10)
 
     popup.timer = UI.Text(popup, "GameFontDisableSmall", "", "RIGHT")
@@ -148,6 +152,9 @@ local function Build()
 end
 
 local function SetupInfo(e)
+    popup.dismiss:SetText("Close")
+    popup.dismiss.discards = nil
+    popup.dismiss.tooltip = nil
     local info = popup.info
     local enc = e.enc
     local p = ns:GetPlayer(enc.key) or {}
@@ -159,6 +166,7 @@ local function SetupInfo(e)
     else
         title = "|cffff4040Killed by|r"
         if enc.how == "auto" then title = title .. " |cff999999(best guess)|r" end
+        if enc.mob then title = title .. " " .. ns:MobTag() end
     end
     popup.title:SetText(title)
 
@@ -214,9 +222,14 @@ local function SetupPick(e)
             b:Hide()
         end
     end
-    pick.help:SetText(shown > 0
-        and "Enemy players that were targeting you. Pick the one who killed you:"
-        or "No enemy players were seen targeting you. Type the killer's name:")
+    local unknown = e.death and e.death.enc and not e.death.enc.key
+    if unknown then
+        pick.help:SetText("Saved as an unknown player. Pick who killed you, if you know:")
+    elseif shown > 0 then
+        pick.help:SetText("Enemy players that were targeting you. Pick the one who killed you:")
+    else
+        pick.help:SetText("No enemy players were seen targeting you. Type the killer's name:")
+    end
 
     local rows = math.ceil(shown / 2)
     local anchorY = -8 - rows * 23 - (shown > 0 and 6 or 0)
@@ -229,7 +242,11 @@ local function SetupPick(e)
     pick.manual:SetWidth(WIDTH - 24 - pick.manualLabel:GetStringWidth() - 8 - 74)
 
     popup:SetHeight(30 + 30 + rows * 23 + 40 + 40)
-    popup.dismiss:SetText(e.death and e.death.enc and "Close" or "Not a player")
+    popup.dismiss:SetText("Not a player")
+    popup.dismiss.discards = true
+    popup.dismiss.tooltip = e.death and e.death.enc
+        and "You weren't killed by a player: remove this death from your history."
+        or "You weren't killed by a player: record nothing."
 end
 
 function ns:RefreshPopup()
@@ -275,7 +292,7 @@ function ns:PickKiller(candidate)
     e.enc = enc
     e.mode = "death"
     e.touched = true
-    ns:Print("Death recorded: killed by " .. ns:ColoredName(enc.key, enc.class))
+    ns:Print("Death recorded: killed by " .. ns:ColoredName(enc.key, enc.class) .. (enc.mob and (" " .. ns:MobTag()) or ""))
     ns:RefreshPopup()
 end
 

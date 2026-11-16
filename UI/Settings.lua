@@ -82,7 +82,8 @@ local function Build(page)
     Check(X1, "Guess the killer when only one suspect", "autoAttributeDeath",
         "WoW: Forever gives addons no combat log, so the addon can't see who killed you. "
         .. "It remembers enemy players that were targeting you. With one suspect it records them "
-        .. "automatically (you can still change it); with several it asks.")
+        .. "automatically (you can still change it). With several, the death is saved against "
+        .. "an unknown player and the popup asks who it was.")
     Check(X1, "Count kills by party members", "countGroupKills",
         "Also record a kill when someone in your group lands the killing blow.")
     Check(X1, "Track battlegrounds and arenas", "trackInstancedPvP",
