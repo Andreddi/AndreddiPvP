@@ -212,7 +212,13 @@ end)
 
 ns.lastDeath = nil -- { t, candidates = { info... }, extra = { mob, mobs } or nil, enc = recorded encounter or nil }
 
+-- PLAYER_DEAD can fire more than once for one death. Only the first counts
+-- until we are alive again.
+local deathHandled = false
+
 local function OnDeath()
+    if deathHandled then return end
+    deathHandled = true
     if not ShouldTrackHere() then return end
     local threats = ns:RecentThreats()
     local candidates = {}
@@ -266,6 +272,13 @@ end
 
 ns:On("PLAYER_DEAD", function() OnDeath() end)
 
+-- PLAYER_ALIVE also fires on release, while still a ghost.
+local function OnAlive()
+    if not UnitIsDeadOrGhost("player") then deathHandled = false end
+end
+ns:On("PLAYER_ALIVE", OnAlive)
+ns:On("PLAYER_UNGHOST", OnAlive)
+
 -- Records (or re-records) the last death against info.
 function ns:AttributeDeath(death, info, how)
     if death.enc then
@@ -305,5 +318,7 @@ function ns:ShowDeathPicker(enc)
 end
 
 ns:Listen("LOGIN", function()
+    -- Logging in or reloading while dead: that death was already handled.
+    deathHandled = UnitIsDeadOrGhost("player") and true or false
     C_Timer.NewTicker(60, function() ns:PruneSeen() end)
 end)

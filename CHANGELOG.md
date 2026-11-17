@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.7
+
+- Fixed one death sometimes being saved twice: once correctly, and once more against the same player without the "+mob" tag.
+
 ## 1.0.6
 
 - The popup after a kill or death no longer appears right away. It waits until you're out of combat and alive again, then shows a few seconds later.
