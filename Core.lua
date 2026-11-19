@@ -358,6 +358,7 @@ ns.defaults = {
     alertHistory = true,
     alertKOS = true,
     alertFriendly = true,
+    alertEnemies = false,
     alertInInstances = false,
     alertCooldown = 300,
     alertDuration = 10,
@@ -367,6 +368,7 @@ ns.defaults = {
     soundKOS = "raidwarning",
     soundFriendly = "friendtoast",
     soundHistory = "tell",
+    soundEnemy = "mapping",
     soundChannel = "Master",
 
     -- Tooltip

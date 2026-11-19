@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.8
+
+- New setting "Alert for every enemy player": shows an alert for every player of the other faction you come across, even ones you have never met. It is off by default. Turn it on in Settings > Alerts. These alerts have their own sound, "Enemy player", and "Repeat after" still applies to each player.
+
 ## 1.0.7
 
 - Fixed one death sometimes being saved twice: once correctly, and once more against the same player without the "+mob" tag.

@@ -106,6 +106,10 @@ local function Build(page)
     Check(X2, "Alert for Friendly", "alertFriendly")
     Check(X2, "Alert for other players in history", "alertHistory",
         "Players you have killed, died to or written a note about, who are on no list.")
+    Check(X2, "Alert for every enemy player", "alertEnemies",
+        "Every player of the other faction you come across, even ones you have never met. "
+        .. "Off by default because it can be a lot of alerts in busy zones. "
+        .. "\"Repeat after\" still applies to each player.")
     Check(X2, "Alert inside instances", "alertInInstances")
     Check(X2, "Also print alerts in chat", "alertChat")
     Gap(X2)
@@ -145,6 +149,7 @@ local function Build(page)
     SoundChoice("|c" .. ns.LIST_INFO.kos.hex .. "Kill on sight|r", "soundKOS")
     SoundChoice("|c" .. ns.LIST_INFO.friendly.hex .. "Friendly|r", "soundFriendly")
     SoundChoice("|cffd4a017Known player|r", "soundHistory")
+    SoundChoice("|cffe03030Enemy player|r", "soundEnemy")
 
     local l = UI.Text(page, "GameFontHighlightSmall", "Channel")
     l:SetPoint("TOPLEFT", X3, cursor[X3] - 3)

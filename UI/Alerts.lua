@@ -1,8 +1,10 @@
 local _, ns = ...
 local UI = ns.UI
+local SafeCall = ns.SafeCall
 
 -- Proximity alerts: a toast (plus optional sound and chat line) when a player
 -- from the history or the lists shows up on a nameplate, target or mouseover.
+-- Optionally also for every player of the enemy faction.
 
 --------------------------------------------------------------------------------
 -- Sounds
@@ -70,6 +72,7 @@ local CATEGORY = {
     kos      = { title = "Kill on sight nearby", color = ns.LIST_INFO.kos.color },
     friendly = { title = "Friendly nearby",      color = ns.LIST_INFO.friendly.color },
     history  = { title = "Known player nearby",  color = { 0.83, 0.63, 0.09 } },
+    enemy    = { title = "Enemy player nearby",  color = { 0.88, 0.19, 0.19 } },
 }
 
 local function Layout()
@@ -204,14 +207,25 @@ end
 
 local lastAlert = {}
 
+-- Is this player from the other faction? Falls back to "can attack us" when
+-- the faction can't be read. Neutral (unaligned Pandaren) don't count.
+local function IsEnemyFaction(info)
+    local mine = SafeCall(UnitFactionGroup, "player")
+    if info.faction and mine then
+        return info.faction ~= mine and info.faction ~= "Neutral"
+    end
+    return info.hostile
+end
+
 -- Builds the toast text for a player. Returns nil if there is nothing to say.
-function ns:BuildAlert(info)
+-- category overrides the default (the list, or "history").
+function ns:BuildAlert(info, category)
     local key = info.key
     local p = ns:GetPlayer(key)
     local gkey = info.guildKey or (p and p.guildKey)
     local g = ns:GetGuild(gkey)
     local list, source = ns:EffectiveList(key, gkey)
-    local category = list or "history"
+    category = category or list or "history"
     if category == "ignore" then return nil end
 
     local class = info.class or (p and p.class)
@@ -254,24 +268,34 @@ function ns:MaybeAlert(info, source)
     local s = ns.db.settings
     if not s.alertsEnabled or not info or not info.key then return end
     if not s.alertInInstances and ns:InAnyInstance() then return end
-    if not ns:IsInteresting(info.key, info.guildKey) then return end
 
+    -- Players on a list follow that list's setting. Everyone else alerts when
+    -- they are in the history, or when they are an enemy and that is enabled.
     local list = ns:EffectiveList(info.key, info.guildKey)
-    if list == "ignore" then return end
-    if list == "kos" and not s.alertKOS then return end
-    if list == "friendly" and not s.alertFriendly then return end
-    if not list and not s.alertHistory then return end
+    local category
+    if list then
+        if list == "ignore" then return end
+        if list == "kos" and not s.alertKOS then return end
+        if list == "friendly" and not s.alertFriendly then return end
+    elseif s.alertHistory and ns:IsInteresting(info.key, info.guildKey) then
+        category = "history"
+    elseif s.alertEnemies and IsEnemyFaction(info) then
+        category = "enemy"
+    else
+        return
+    end
 
     local now = GetTime()
     if lastAlert[info.key] and now - lastAlert[info.key] < (s.alertCooldown or 300) then return end
     lastAlert[info.key] = now
 
-    local data = ns:BuildAlert(info)
+    local data = ns:BuildAlert(info, category)
     if not data then return end
     ShowToast(data)
 
     if s.soundsEnabled then
-        local soundKey = (list == "kos" and s.soundKOS) or (list == "friendly" and s.soundFriendly) or s.soundHistory
+        local soundKey = (list == "kos" and s.soundKOS) or (list == "friendly" and s.soundFriendly)
+            or (category == "enemy" and s.soundEnemy) or s.soundHistory
         ns:PlayAlertSound(soundKey)
     end
     if s.alertChat then
